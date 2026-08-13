@@ -16,15 +16,22 @@ python3.12 -m venv .venv
 The local Python interpreter may be supplied by the existing Plugin virtual
 environment when `python3.12` is not installed globally.
 
+## Local configuration
+
+Copy `.env.example` to `.env`, then configure the three
+`DRAMA_PLUGIN_SERVICE_*_API_TOKEN` values to match the Java Drama Service
+`DRAMA_TOOL_SECRET`. Set `DRAMA_PLUGIN_MEDIA_IMPORT_ALLOWED_ROOTS` to the local
+directories from which media imports are allowed. The private `.env` is ignored
+by Git and must not be committed. Restart the MCP Server after changing it.
+
 ## Run the complete stack
 
 1. Start Java Drama Service with `DRAMA_TOOL_SECRET` configured.
-2. Export the same value only as the Plugin provider tokens:
+2. Configure the same value only as the Plugin provider tokens in `.env`:
    `DRAMA_PLUGIN_SERVICE_MEMORY_API_TOKEN`,
    `DRAMA_PLUGIN_SERVICE_ASSET_API_TOKEN`, and
    `DRAMA_PLUGIN_SERVICE_MEDIA_API_TOKEN`.
-3. Set `DRAMA_PLUGIN_ROOT` and `DRAMA_PLUGIN_CONFIG` as shown in
-   `.env.example`.
+3. Set `DRAMA_PLUGIN_ROOT` and `DRAMA_PLUGIN_CONFIG` as shown in `.env.example`.
 4. Run `.venv/bin/drama-mcp-service`.
 5. Point the MCP host at `http://127.0.0.1:8765/mcp` and run `tools/list`.
 6. Call a canonical tool such as `work.list_works`.

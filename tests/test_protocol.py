@@ -12,7 +12,14 @@ ROOT = Path(__file__).resolve().parents[1]
 PLUGIN_ROOT = ROOT.parent / "drama-plugin" / "plugin"
 
 
+def force_mock_provider_modes(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    for service in ("MEMORY", "ASSET", "RESEARCH", "PRODUCTION", "MEDIA"):
+        monkeypatch.setenv(f"DRAMA_PLUGIN_PROVIDER_{service}_MODE", "mock")
+    monkeypatch.setenv("DRAMA_PLUGIN_PROVIDER_CONTEXT_MODE", "local")
+
+
 async def test_standard_protocol_initialize_list_and_call(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    force_mock_provider_modes(monkeypatch)
     monkeypatch.setenv("DRAMA_PLUGIN_ROOT", str(PLUGIN_ROOT))
     monkeypatch.delenv("DRAMA_PLUGIN_CONFIG", raising=False)
     async with InMemoryTransport(create_server()) as streams:
@@ -34,6 +41,7 @@ async def test_standard_protocol_initialize_list_and_call(monkeypatch) -> None: 
 
 
 async def test_standard_protocol_unknown_and_invalid_calls_are_safe(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    force_mock_provider_modes(monkeypatch)
     monkeypatch.setenv("DRAMA_PLUGIN_ROOT", str(PLUGIN_ROOT))
     monkeypatch.delenv("DRAMA_PLUGIN_CONFIG", raising=False)
     async with InMemoryTransport(create_server()) as streams:

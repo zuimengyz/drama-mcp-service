@@ -12,6 +12,7 @@ dependencies = [
   "drama-plugin>=0.1,<1",
   "mcp>=2,<3",
   "jsonschema>=4.23,<5",
+  "python-dotenv>=1,<2",
 ]
 
 [project.optional-dependencies]
