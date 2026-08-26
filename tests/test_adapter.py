@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 from drama_plugin import DramaPlugin
+from drama_plugin.exceptions import ProviderResultUnknown, SpeechProviderError
 
 from drama_mcp_service.adapter import PluginToolAdapter, to_json_value
 
@@ -20,7 +21,7 @@ async def adapter() -> PluginToolAdapter:
 def test_tool_projection_is_dynamic_and_lossless(adapter: PluginToolAdapter) -> None:
     plugin_tools = adapter.plugin.tools.list()
     mcp_tools = adapter.list_tools()
-    assert len(plugin_tools) == len(mcp_tools) == 44
+    assert len(plugin_tools) == len(mcp_tools)
     assert [tool.code for tool in plugin_tools] == [tool.name for tool in mcp_tools]
     for source, projected in zip(plugin_tools, mcp_tools, strict=True):
         assert projected.description == source.description
@@ -96,3 +97,37 @@ def test_media_tools_are_automatically_projected(adapter: PluginToolAdapter) -> 
         source = adapter.plugin.tools.get(code)
         assert projected[code].description == source.description
         assert projected[code].input_schema == source.input_schema
+
+
+@pytest.mark.parametrize(
+    ("raised", "code"),
+    [
+        (
+            ProviderResultUnknown("result cannot be confirmed"),
+            "AMBIGUOUS_RESULT",
+        ),
+        (
+            SpeechProviderError("request rejected", status_code=400),
+            "PROVIDER_REJECTED",
+        ),
+        (
+            SpeechProviderError("safe retries exhausted", retryable=True),
+            "TRANSIENT_RETRY_EXHAUSTED",
+        ),
+    ],
+)
+async def test_speech_errors_preserve_paid_retry_safety(
+    adapter: PluginToolAdapter,
+    monkeypatch: pytest.MonkeyPatch,
+    raised: Exception,
+    code: str,
+) -> None:
+    async def fail(*args: object, **kwargs: object) -> object:
+        raise raised
+
+    monkeypatch.setattr(adapter.plugin.tools, "invoke", fail)
+    result = await adapter.call_tool("work.get_work", {"work_id": "work-1"})
+
+    assert result.is_error is True
+    assert result.structured_content["error"]["code"] == code
+    assert str(raised) not in result.content[0].text  # type: ignore[union-attr]

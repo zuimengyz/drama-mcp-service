@@ -14,7 +14,9 @@ from drama_plugin.exceptions import (  # type: ignore[import-untyped]
     ContractValidationError,
     DramaPluginError,
     ProviderError,
+    ProviderResultUnknown,
     RemoteServiceError,
+    SpeechProviderError,
     ToolNotFoundError,
 )
 from drama_plugin.tools import ToolDefinition  # type: ignore[import-untyped]
@@ -90,6 +92,22 @@ class PluginToolAdapter:
             return self._error("INVALID_ARGUMENT", "Plugin contract validation failed")
         except ContextBuildError:
             return self._error("CONTEXT_ERROR", "Plugin context construction failed")
+        except ProviderResultUnknown:
+            return self._error(
+                "AMBIGUOUS_RESULT",
+                "Provider submission may have succeeded; paid retry is unsafe",
+            )
+        except SpeechProviderError as exc:
+            if exc.status_code is not None and 400 <= exc.status_code <= 499:
+                return self._error(
+                    "PROVIDER_REJECTED", "Speech provider rejected the request"
+                )
+            if exc.retryable:
+                return self._error(
+                    "TRANSIENT_RETRY_EXHAUSTED",
+                    "Speech provider exhausted its safe transient retry policy",
+                )
+            return self._error("PROVIDER_ERROR", "Speech provider operation failed")
         except ProviderError as exc:
             return self._error(getattr(exc, "error_code", "PROVIDER_ERROR"), "Plugin provider operation failed")
         except DramaPluginError:

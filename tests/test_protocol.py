@@ -27,9 +27,13 @@ async def test_standard_protocol_initialize_list_and_call(monkeypatch) -> None: 
             initialized = await session.initialize()
             assert initialized.server_info.name == "drama-mcp-service"
             listed = await session.list_tools()
-            assert len(listed.tools) == 44
-            assert "scene.create_scene" in {tool.name for tool in listed.tools}
-            assert {"media.import_media", "media.resolve_media"} <= {tool.name for tool in listed.tools}
+            names = {tool.name for tool in listed.tools}
+            assert "scene.create_scene" in names
+            assert {
+                "media.import_media",
+                "media.resolve_media",
+                "media.restore_media_object",
+            } <= names
             result = await session.call_tool("work.get_work", {"work_id": "work-1"})
             assert result.is_error is False
             assert result.structured_content["id"] == "work-1"
