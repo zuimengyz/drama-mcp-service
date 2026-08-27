@@ -17,6 +17,7 @@ from drama_plugin.exceptions import (  # type: ignore[import-untyped]
     ProviderError,
     ProviderResultUnknown,
     RemoteServiceError,
+    RoleDubbingError,
     SpeechProviderError,
     ToolNotFoundError,
 )
@@ -115,6 +116,14 @@ class PluginToolAdapter:
             return self._error("PROVIDER_ERROR", "Speech provider operation failed")
         except ProviderError as exc:
             return self._error(getattr(exc, "error_code", "PROVIDER_ERROR"), "Plugin provider operation failed")
+        except RoleDubbingError as exc:
+            allowed = {
+                "VOICE_CASTING_FAILED", "INTELLIGIBILITY_QC_FAILED", "VOICE_NOT_FOUND",
+                "VOICE_REFERENCE_UNAVAILABLE", "VOICE_BINDING_INVALID",
+                "VOICE_MAPPING_AMBIGUOUS", "ROLE_DUBBING_CAPABILITY_MISSING",
+            }
+            code = exc.error_code if exc.error_code in allowed else "ROLE_DUBBING_FAILED"
+            return self._error(code, "Role dubbing operation failed safely")
         except DramaPluginError:
             return self._error("PLUGIN_ERROR", "Plugin operation failed")
         except Exception:

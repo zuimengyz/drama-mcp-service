@@ -13,7 +13,7 @@ PLUGIN_ROOT = ROOT.parent / "drama-plugin" / "plugin"
 
 
 def force_mock_provider_modes(monkeypatch) -> None:  # type: ignore[no-untyped-def]
-    for service in ("MEMORY", "ASSET", "RESEARCH", "PRODUCTION", "MEDIA"):
+    for service in ("MEMORY", "ASSET", "RESEARCH", "PRODUCTION", "MEDIA", "VOICE"):
         monkeypatch.setenv(f"DRAMA_PLUGIN_PROVIDER_{service}_MODE", "mock")
     monkeypatch.setenv("DRAMA_PLUGIN_PROVIDER_CONTEXT_MODE", "local")
 
@@ -33,6 +33,9 @@ async def test_standard_protocol_initialize_list_and_call(monkeypatch) -> None: 
                 "media.import_media",
                 "media.resolve_media",
                 "media.restore_media_object",
+                "voice.import_voice",
+                "voice.get_voice",
+                "production.generate_role_dubbing",
             } <= names
             result = await session.call_tool("work.get_work", {"work_id": "work-1"})
             assert result.is_error is False

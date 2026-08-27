@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 from drama_plugin import DramaPlugin
-from drama_plugin.exceptions import ProviderResultUnknown, SpeechProviderError
+from drama_plugin.exceptions import ProviderResultUnknown, RoleDubbingError, SpeechProviderError
 
 from drama_mcp_service.adapter import PluginToolAdapter, to_json_value
 
@@ -97,6 +97,33 @@ def test_media_tools_are_automatically_projected(adapter: PluginToolAdapter) -> 
         source = adapter.plugin.tools.get(code)
         assert projected[code].description == source.description
         assert projected[code].input_schema == source.input_schema
+
+
+def test_voice_and_role_dubbing_tools_are_automatically_projected(adapter: PluginToolAdapter) -> None:
+    projected = {tool.name: tool for tool in adapter.list_tools()}
+    for code in ("voice.import_voice", "voice.get_voice", "voice.save_voice",
+                 "voice.resolve_voice", "production.generate_role_dubbing"):
+        source = adapter.plugin.tools.get(code)
+        assert projected[code].description == source.description
+        assert projected[code].input_schema == source.input_schema
+
+
+@pytest.mark.parametrize("code", ["VOICE_CASTING_FAILED", "INTELLIGIBILITY_QC_FAILED",
+                                  "VOICE_NOT_FOUND", "VOICE_REFERENCE_UNAVAILABLE"])
+async def test_role_dubbing_errors_remain_high_level_and_provider_neutral(
+    adapter: PluginToolAdapter, monkeypatch: pytest.MonkeyPatch, code: str,
+) -> None:
+    async def fail(*args: object, **kwargs: object) -> object:
+        raise RoleDubbingError(code, "private provider detail")
+
+    monkeypatch.setattr(adapter.plugin.tools, "invoke", fail)
+    result = await adapter.call_tool("work.get_work", {"work_id": "work-1"})
+    assert result.is_error is True
+    assert result.structured_content["error"] == {
+        "code": code,
+        "message": "Role dubbing operation failed safely",
+    }
+    assert "private provider detail" not in result.content[0].text  # type: ignore[union-attr]
 
 
 @pytest.mark.parametrize(
