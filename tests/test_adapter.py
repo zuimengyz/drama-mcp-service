@@ -131,3 +131,45 @@ async def test_speech_errors_preserve_paid_retry_safety(
     assert result.is_error is True
     assert result.structured_content["error"]["code"] == code
     assert str(raised) not in result.content[0].text  # type: ignore[union-attr]
+
+
+async def test_provider_rejection_propagates_only_safe_diagnostics(
+    adapter: PluginToolAdapter,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    raised = SpeechProviderError(
+        "raw exception must remain private",
+        status_code=400,
+        provider_error_code="InvalidParameter",
+        provider_error_message=(
+            "input length invalid; Authorization: Bearer hidden-secret; "
+            "api_key=sk-hidden-secret; url=https://signed.invalid/x?token=hidden"
+        ),
+        provider_request_id="request-safe-123",
+        rejection_reason="INVALID_REQUEST",
+    )
+
+    async def fail(*args: object, **kwargs: object) -> object:
+        raise raised
+
+    monkeypatch.setattr(adapter.plugin.tools, "invoke", fail)
+    result = await adapter.call_tool("work.get_work", {"work_id": "work-1"})
+
+    assert result.is_error is True
+    error = result.structured_content["error"]
+    assert error == {
+        "code": "PROVIDER_REJECTED",
+        "message": "Speech provider rejected the request",
+        "rejectionReason": "INVALID_REQUEST",
+        "httpStatus": 400,
+        "providerErrorCode": "InvalidParameter",
+        "providerErrorMessage": (
+            "input length invalid; Authorization=[REDACTED] [REDACTED]; "
+            "api_key=[REDACTED]; url=[REDACTED_URL]"
+        ),
+        "providerRequestId": "request-safe-123",
+    }
+    serialized = result.content[0].text  # type: ignore[union-attr]
+    assert "hidden-secret" not in serialized
+    assert "signed.invalid" not in serialized
+    assert "raw exception must remain private" not in serialized

@@ -105,8 +105,9 @@ async def run() -> None:
             patch = await call("context.refresh_context", {"request": {"scope": "SHOT", "resourceId": shot["id"], "purpose": "SHOT_DESIGN", "options": {}}, "current": context})
             assert patch["contextId"] == context["contextId"] and patch["newVersion"] == 2
 
-            expected_memory = {name for name in tools if name.split(".", 1)[0] in MEMORY_DOMAINS} - {"media.import_media", "media.resolve_media"}
-            expected_other = set(tools) - expected_memory - {"media.import_media", "media.resolve_media"}
+            storage_tools = {"media.import_media", "media.resolve_media", "media.restore_media_object"}
+            expected_memory = {name for name in tools if name.split(".", 1)[0] in MEMORY_DOMAINS} - storage_tools
+            expected_other = set(tools) - expected_memory - storage_tools
             assert memory_smoke == expected_memory
             assert other_smoke == expected_other
 

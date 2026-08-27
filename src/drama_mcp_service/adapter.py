@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import inspect
 import json
+import re
 from collections.abc import Mapping
 from datetime import date, datetime
 from enum import Enum
@@ -98,9 +99,13 @@ class PluginToolAdapter:
                 "Provider submission may have succeeded; paid retry is unsafe",
             )
         except SpeechProviderError as exc:
-            if exc.status_code is not None and 400 <= exc.status_code <= 499:
+            if (
+                exc.status_code is not None and 400 <= exc.status_code <= 499
+            ) or exc.rejection_reason is not None:
                 return self._error(
-                    "PROVIDER_REJECTED", "Speech provider rejected the request"
+                    "PROVIDER_REJECTED",
+                    "Speech provider rejected the request",
+                    details=self._speech_rejection_details(exc),
                 )
             if exc.retryable:
                 return self._error(
@@ -140,8 +145,65 @@ class PluginToolAdapter:
         return "Downstream provider operation failed"
 
     @staticmethod
-    def _error(code: str, message: str) -> types.CallToolResult:
-        payload = {"error": {"code": code, "message": message}}
+    def _speech_rejection_details(exc: SpeechProviderError) -> dict[str, Any]:
+        details: dict[str, Any] = {
+            "rejectionReason": exc.rejection_reason or "UNKNOWN_REJECTION"
+        }
+        if exc.status_code is not None:
+            details["httpStatus"] = exc.status_code
+        provider_error_code = PluginToolAdapter._safe_identifier(
+            exc.provider_error_code
+        )
+        provider_request_id = PluginToolAdapter._safe_identifier(
+            exc.provider_request_id
+        )
+        provider_error_message = PluginToolAdapter._safe_message(
+            exc.provider_error_message
+        )
+        if provider_error_code:
+            details["providerErrorCode"] = provider_error_code
+        if provider_error_message:
+            details["providerErrorMessage"] = provider_error_message
+        if provider_request_id:
+            details["providerRequestId"] = provider_request_id
+        return details
+
+    @staticmethod
+    def _safe_identifier(value: str | None) -> str | None:
+        if value is None or len(value) > 200:
+            return None
+        return value if re.fullmatch(r"[A-Za-z0-9_.:-]+", value) else None
+
+    @staticmethod
+    def _safe_message(value: str | None) -> str | None:
+        if value is None:
+            return None
+        rendered = " ".join(value.replace("\x00", " ").split())
+        rendered = re.sub(
+            r"https?://[^\s\"'<>]+", "[REDACTED_URL]", rendered, flags=re.I
+        )
+        rendered = re.sub(
+            r"\bBearer\s+[^\s,;]+", "Bearer [REDACTED]", rendered, flags=re.I
+        )
+        rendered = re.sub(
+            r"\bsk-[A-Za-z0-9_-]{8,}", "[REDACTED_API_KEY]", rendered
+        )
+        rendered = re.sub(
+            r"(?i)\b(authorization|api[_ -]?key|access[_ -]?token|cookie|credential)"
+            r"\s*[:=]\s*([^\s,;]+)",
+            lambda match: f"{match.group(1)}=[REDACTED]",
+            rendered,
+        )
+        return rendered[:500] or None
+
+    @staticmethod
+    def _error(
+        code: str, message: str, *, details: dict[str, Any] | None = None
+    ) -> types.CallToolResult:
+        error: dict[str, Any] = {"code": code, "message": message}
+        if details:
+            error.update(details)
+        payload = {"error": error}
         return types.CallToolResult(
             content=[types.TextContent(type="text", text=json.dumps(payload, ensure_ascii=False))],
             structured_content=payload,

@@ -28,6 +28,7 @@ async def verify_mcp() -> dict[str, Any]:
                 "toolCount": len(names),
                 "mediaImportDiscovered": "media.import_media" in names,
                 "mediaResolveDiscovered": "media.resolve_media" in names,
+                "mediaRestoreDiscovered": "media.restore_media_object" in names,
                 "javaBearerReadCall": not result.is_error,
             }
 
