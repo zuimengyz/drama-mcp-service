@@ -9,5 +9,7 @@ build/
 *.egg-info/
 .DS_Store
 .env
+.env.*
+*.env
+runtime.env
 .idea
-

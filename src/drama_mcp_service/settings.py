@@ -4,16 +4,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from dotenv import load_dotenv
-
-
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-ENV_FILE = PROJECT_ROOT / ".env"
-
-
-def load_project_environment(env_file: Path = ENV_FILE) -> None:
-    """Load host-local configuration without replacing process variables."""
-    load_dotenv(dotenv_path=env_file, override=False)
 
 
 def resolve_project_path(value: str) -> Path:
@@ -31,7 +22,6 @@ class Settings:
 
     @classmethod
     def from_environment(cls) -> "Settings":
-        load_project_environment()
         default_plugin = PROJECT_ROOT.parent / "drama-plugin" / "plugin"
         raw_root = os.environ.get("DRAMA_PLUGIN_ROOT")
         raw_config = os.environ.get("DRAMA_PLUGIN_CONFIG")
