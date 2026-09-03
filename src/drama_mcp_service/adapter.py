@@ -121,9 +121,11 @@ class PluginToolAdapter:
                 "VOICE_CASTING_FAILED", "INTELLIGIBILITY_QC_FAILED", "VOICE_NOT_FOUND",
                 "VOICE_REFERENCE_UNAVAILABLE", "VOICE_BINDING_INVALID",
                 "VOICE_MAPPING_AMBIGUOUS", "ROLE_DUBBING_CAPABILITY_MISSING",
+                "VOICE_ARTISTIC_REVIEW_REQUIRED", "VOICE_ARTISTIC_APPROVAL_INVALID",
             }
             code = exc.error_code if exc.error_code in allowed else "ROLE_DUBBING_FAILED"
-            return self._error(code, "Role dubbing operation failed safely")
+            details = exc.details if code == "VOICE_ARTISTIC_REVIEW_REQUIRED" else None
+            return self._error(code, "Role dubbing operation failed safely", details=details)
         except DramaPluginError:
             return self._error("PLUGIN_ERROR", "Plugin operation failed")
         except Exception:

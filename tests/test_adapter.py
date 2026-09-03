@@ -109,6 +109,8 @@ def test_voice_and_role_dubbing_tools_are_automatically_projected(adapter: Plugi
 
 
 @pytest.mark.parametrize("code", ["VOICE_CASTING_FAILED", "INTELLIGIBILITY_QC_FAILED",
+                                   "VOICE_ARTISTIC_REVIEW_REQUIRED",
+                                   "VOICE_ARTISTIC_APPROVAL_INVALID",
                                   "VOICE_NOT_FOUND", "VOICE_REFERENCE_UNAVAILABLE"])
 async def test_role_dubbing_errors_remain_high_level_and_provider_neutral(
     adapter: PluginToolAdapter, monkeypatch: pytest.MonkeyPatch, code: str,
