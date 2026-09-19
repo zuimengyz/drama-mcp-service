@@ -37,10 +37,15 @@ async def test_standard_protocol_initialize_list_and_call(monkeypatch) -> None: 
                 "voice.get_voice",
                 "production.generate_role_dubbing",
             } <= names
-            result = await session.call_tool("work.get_work", {"work_id": "work-1"})
+            empty = await session.call_tool("work.list_works", {})
+            assert empty.is_error is False and empty.content[0].text.strip() == "[]"
+            # In-memory fixture only: no formal service or storage is configured.
+            created = await session.call_tool("work.create_work", {"title":"Protocol fixture", "content":{}})
+            assert created.is_error is False
+            result = await session.call_tool("work.get_work", {"work_id": "work-new"})
             assert result.is_error is False
-            assert result.structured_content["id"] == "work-1"
-            imported = await session.call_tool("media.import_media", {"work_id":"work-1","media_type":"IMAGE","source_uri":"file:///not-read-by-mock.png","content":{}})
+            assert result.structured_content["id"] == "work-new"
+            imported = await session.call_tool("media.import_media", {"work_id":"work-new","media_type":"IMAGE","source_uri":"file:///not-read-by-mock.png","content":{}})
             assert imported.is_error is False
             resolved = await session.call_tool("media.resolve_media", {"media_id": imported.structured_content["id"]})
             assert resolved.is_error is False

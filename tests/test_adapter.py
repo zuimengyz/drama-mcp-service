@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 from drama_plugin import DramaPlugin
+from drama_plugin.providers.mock.data import MockDramaData
 from drama_plugin.exceptions import ProviderResultUnknown, RoleDubbingError, SpeechProviderError
 
 from drama_mcp_service.adapter import PluginToolAdapter, to_json_value
@@ -14,7 +15,7 @@ PLUGIN_ROOT = Path(__file__).resolve().parents[2] / "drama-plugin" / "plugin"
 
 @pytest.fixture
 async def adapter() -> PluginToolAdapter:
-    async with DramaPlugin.load(PLUGIN_ROOT) as plugin:
+    async with DramaPlugin.load(PLUGIN_ROOT, mock_data=MockDramaData()) as plugin:
         yield PluginToolAdapter(plugin)
 
 
