@@ -65,3 +65,33 @@ async def test_standard_protocol_unknown_and_invalid_calls_are_safe(monkeypatch)
             assert unknown.structured_content["error"]["code"] == "NOT_FOUND"
             assert invalid.is_error is True
             assert invalid.structured_content["error"]["code"] == "INVALID_ARGUMENT"
+
+
+async def test_explicit_server_settings_are_used_by_plugin_lifespan(monkeypatch, tmp_path):
+    from drama_mcp_service.settings import Settings
+    force_mock_provider_modes(monkeypatch)
+    monkeypatch.setenv('DRAMA_PLUGIN_ROOT', str(tmp_path / 'wrong-env-plugin'))
+    settings = Settings(plugin_root=PLUGIN_ROOT, plugin_config=None, host='127.0.0.1', port=8765)
+    server = create_server(settings)
+    # Later ENV changes cannot replace the already selected external Settings.
+    async with InMemoryTransport(server) as streams:
+        async with ClientSession(*streams[:2]) as session:
+            await session.initialize()
+            assert (await session.call_tool('work.list_works', {})).is_error is False
+
+
+async def test_mcp_nested_contract_fields_survive_roundtrip(monkeypatch):
+    force_mock_provider_modes(monkeypatch)
+    monkeypatch.setenv('DRAMA_PLUGIN_ROOT', str(PLUGIN_ROOT))
+    content = {'authorityFixture': {'intent': {'owner':'director', 'unknownFutureField':[1, False, None]},
+                                   'source': {'compilerVersion':'test', 'gateStatus':'NOT_RUN'}}}
+    async with InMemoryTransport(create_server()) as streams:
+        async with ClientSession(*streams[:2]) as session:
+            await session.initialize()
+            result = await session.call_tool('work.create_work', {'title':'fixture', 'content':content})
+            assert result.structured_content['content'] == content
+            result = await session.call_tool('work.get_work', {'work_id':result.structured_content['id']})
+            assert result.structured_content['content'] == content
+            invalid = await session.call_tool('scene.create_scene',
+                {'episode_id':'e', 'order':-1, 'title':'fixture', 'content':{}})
+            assert invalid.is_error is True

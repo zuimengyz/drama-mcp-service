@@ -17,9 +17,8 @@ from drama_mcp_service.settings import Settings
 
 
 @asynccontextmanager
-async def plugin_lifespan(server: Server[PluginToolAdapter]) -> AsyncIterator[PluginToolAdapter]:
+async def plugin_lifespan(server: Server[PluginToolAdapter], *, settings: Settings) -> AsyncIterator[PluginToolAdapter]:
     del server
-    settings = Settings.from_environment()
     async with DramaPlugin.load(settings.plugin_root, settings.plugin_config) as plugin:
         yield PluginToolAdapter(plugin)
 
@@ -44,13 +43,15 @@ async def health(request: Request) -> JSONResponse:
     return JSONResponse({"status": "ok", "service": "drama-mcp-service"})
 
 
-def create_server() -> Server[PluginToolAdapter]:
+def create_server(settings: Settings | None = None) -> Server[PluginToolAdapter]:
+    from functools import partial
+    resolved = settings or Settings.from_environment()
     return Server(
         "drama-mcp-service",
         version="0.1.0",
         title="Drama MCP Service",
         description="MCP host adapter for the Drama Plugin tool registry.",
-        lifespan=plugin_lifespan,
+        lifespan=partial(plugin_lifespan, settings=resolved),
         on_list_tools=list_tools,
         on_call_tool=call_tool,
     )
@@ -58,7 +59,7 @@ def create_server() -> Server[PluginToolAdapter]:
 
 def create_app(settings: Settings | None = None) -> Any:
     resolved = settings or Settings.from_environment()
-    return create_server().streamable_http_app(
+    return create_server(resolved).streamable_http_app(
         streamable_http_path="/mcp",
         host=resolved.host,
         custom_starlette_routes=[Route("/health", health, methods=["GET"])],
