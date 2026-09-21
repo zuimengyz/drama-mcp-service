@@ -17,10 +17,15 @@ from drama_mcp_service.settings import Settings
 
 
 @asynccontextmanager
-async def plugin_lifespan(server: Server[PluginToolAdapter], *, settings: Settings) -> AsyncIterator[PluginToolAdapter]:
+async def plugin_lifespan(server: Server[PluginToolAdapter], *, settings: Settings, runtime: dict[str, Any]) -> AsyncIterator[PluginToolAdapter]:
     del server
     async with DramaPlugin.load(settings.plugin_root, settings.plugin_config) as plugin:
-        yield PluginToolAdapter(plugin)
+        from drama_mcp_service.runtime_identity import capture_identity
+        runtime.update(status="ready", identity=capture_identity(settings, plugin))
+        try:
+            yield PluginToolAdapter(plugin)
+        finally:
+            runtime["status"] = "stopped"
 
 
 async def list_tools(
@@ -39,11 +44,12 @@ async def call_tool(
 
 
 async def health(request: Request) -> JSONResponse:
-    del request
-    return JSONResponse({"status": "ok", "service": "drama-mcp-service"})
+    runtime = request.app.state.runtime_identity
+    return JSONResponse({"service": "drama-mcp-service", **runtime},
+                        status_code=200 if runtime["status"] == "ready" else 503)
 
 
-def create_server(settings: Settings | None = None) -> Server[PluginToolAdapter]:
+def create_server(settings: Settings | None = None, *, runtime: dict[str, Any] | None = None) -> Server[PluginToolAdapter]:
     from functools import partial
     resolved = settings or Settings.from_environment()
     return Server(
@@ -51,7 +57,7 @@ def create_server(settings: Settings | None = None) -> Server[PluginToolAdapter]
         version="0.1.0",
         title="Drama MCP Service",
         description="MCP host adapter for the Drama Plugin tool registry.",
-        lifespan=partial(plugin_lifespan, settings=resolved),
+        lifespan=partial(plugin_lifespan, settings=resolved, runtime=runtime if runtime is not None else {"status": "starting"}),
         on_list_tools=list_tools,
         on_call_tool=call_tool,
     )
@@ -59,11 +65,14 @@ def create_server(settings: Settings | None = None) -> Server[PluginToolAdapter]
 
 def create_app(settings: Settings | None = None) -> Any:
     resolved = settings or Settings.from_environment()
-    return create_server(resolved).streamable_http_app(
+    runtime: dict[str, Any] = {"status": "starting"}
+    app = create_server(resolved, runtime=runtime).streamable_http_app(
         streamable_http_path="/mcp",
         host=resolved.host,
         custom_starlette_routes=[Route("/health", health, methods=["GET"])],
     )
+    app.state.runtime_identity = runtime
+    return app
 
 
 def main() -> None:

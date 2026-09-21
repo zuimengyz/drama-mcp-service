@@ -95,3 +95,32 @@ async def test_mcp_nested_contract_fields_survive_roundtrip(monkeypatch):
             invalid = await session.call_tool('scene.create_scene',
                 {'episode_id':'e', 'order':-1, 'title':'fixture', 'content':{}})
             assert invalid.is_error is True
+
+
+async def test_actual_context_response_matches_advertised_schema_and_rhythm_conflicts(monkeypatch):
+    from jsonschema import Draft202012Validator
+    force_mock_provider_modes(monkeypatch)
+    monkeypatch.setenv('DRAMA_PLUGIN_ROOT', str(PLUGIN_ROOT))
+    monkeypatch.delenv('DRAMA_PLUGIN_CONFIG', raising=False)
+    monkeypatch.setenv('rhythm_speed', 'medium')
+    async with InMemoryTransport(create_server()) as streams:
+        async with ClientSession(*streams[:2]) as session:
+            await session.initialize()
+            catalog = (await session.list_tools()).tools
+            schema = next(t.output_schema for t in catalog if t.name == 'context.build_context')
+            validator = Draft202012Validator(schema)
+            for options in ({'newWork':True}, {'newWork':True,'rhythm_speed':'medium'},
+                            {'newWork':True,'creativeRhythm':{'rhythmSpeed':'medium'}}):
+                result = await session.call_tool('context.build_context', {'request':{
+                    'scope':'WORK','purpose':'WORK_CREATION','resourceId':'protocol-no-work','options':options}})
+                assert result.is_error is False
+                assert list(validator.iter_errors(result.structured_content)) == []
+                assert result.structured_content['creativeRhythm']['rhythm_speed'] == 'medium'
+                assert 'rhythmSpeed' not in result.structured_content['creativeRhythm']
+                assert result.structured_content['work'] is None
+            for options in ({'newWork':True,'rhythm_speed':'fast'},
+                            {'newWork':True,'creativeRhythm':{'rhythmSpeed':'fast'}}):
+                result = await session.call_tool('context.build_context', {'request':{
+                    'scope':'WORK','purpose':'WORK_CREATION','resourceId':'protocol-no-work','options':options}})
+                assert result.is_error is True
+                assert result.structured_content['error']['code'] == 'RHYTHM_AUTHORITY_CONFLICT'

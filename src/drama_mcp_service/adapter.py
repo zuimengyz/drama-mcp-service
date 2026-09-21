@@ -12,6 +12,7 @@ from drama_plugin import DramaPlugin  # type: ignore[import-untyped]
 from drama_plugin.exceptions import (  # type: ignore[import-untyped]
     ConfigurationError,
     ContextBuildError,
+    RhythmAuthorityConflict,
     ContractValidationError,
     DramaPluginError,
     ProviderError,
@@ -92,6 +93,8 @@ class PluginToolAdapter:
             return self._error("CONFIGURATION_ERROR", "Plugin provider configuration is invalid")
         except ContractValidationError:
             return self._error("INVALID_ARGUMENT", "Plugin contract validation failed")
+        except RhythmAuthorityConflict:
+            return self._error("RHYTHM_AUTHORITY_CONFLICT", "Task rhythm assertion conflicts with context authority")
         except ContextBuildError:
             return self._error("CONTEXT_ERROR", "Plugin context construction failed")
         except ProviderResultUnknown:
