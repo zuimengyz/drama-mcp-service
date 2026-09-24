@@ -19,6 +19,11 @@ class Settings:
     plugin_config: Path | None
     host: str = "127.0.0.1"
     port: int = 8765
+    max_request_bytes: int = 4 * 1024 * 1024
+
+    def __post_init__(self) -> None:
+        if type(self.max_request_bytes) is not int or self.max_request_bytes <= 0:
+            raise ValueError("DRAMA_MCP_MAX_REQUEST_BYTES must be a positive integer")
 
     @classmethod
     def from_environment(cls) -> "Settings":
@@ -32,4 +37,5 @@ class Settings:
             plugin_config=plugin_config,
             host=os.environ.get("DRAMA_MCP_HOST", "127.0.0.1"),
             port=int(os.environ.get("DRAMA_MCP_PORT", "8765")),
+            max_request_bytes=int(os.environ.get("DRAMA_MCP_MAX_REQUEST_BYTES", "4194304")),
         )

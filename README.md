@@ -25,6 +25,13 @@ Runtime values live outside Git in two ownership-separated files:
 The MCP process must not load `drama-service.env` and starts normally without
 database or object-storage variables.
 
+The Host reads `DRAMA_MCP_MAX_REQUEST_BYTES` from `mcp-host.env` and passes it
+to the MCP SDK Streamable HTTP body parser. Unset defaults to 4194304 bytes
+(4 MiB). This deployment uses `DRAMA_MCP_MAX_REQUEST_BYTES=8388608` (8 MiB).
+Only positive integer byte limits are accepted; zero/unlimited is unsupported.
+Restart the Host after changing this setting. Do not place it in Plugin or
+Drama Service configuration.
+
 ## Run the complete stack
 
 1. Start Java Drama Service through `../scripts/start-drama-service.sh`.

@@ -69,6 +69,7 @@ def create_app(settings: Settings | None = None) -> Any:
     app = create_server(resolved, runtime=runtime).streamable_http_app(
         streamable_http_path="/mcp",
         host=resolved.host,
+        max_request_body_size=resolved.max_request_bytes,
         custom_starlette_routes=[Route("/health", health, methods=["GET"])],
     )
     app.state.runtime_identity = runtime
