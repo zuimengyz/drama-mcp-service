@@ -24,7 +24,7 @@ def test_limit_is_host_owned(tmp_path):
     assert validate('drama-service', env).returncode == 1
 
 
-@pytest.mark.parametrize('configured,limit', [(None, 4194304), ('8388608', 8388608)])
+@pytest.mark.parametrize('configured,limit', [(None, 4194304), ('8388608', 8388608), ('33554432', 33554432)])
 @pytest.mark.parametrize('streamed', [False, True])
 def test_actual_http_parser_limit(monkeypatch, configured, limit, streamed):
     force_mock_provider_modes(monkeypatch)
@@ -56,3 +56,30 @@ def test_actual_http_parser_limit(monkeypatch, configured, limit, streamed):
             else:
                 assert result.status_code == 200
                 assert 'work.save_work' in result.text
+
+
+@pytest.mark.parametrize('payload_size', [128, 9 * 1024 * 1024])
+def test_whole_work_save_roundtrip_with_bounded_headroom(monkeypatch, payload_size):
+    # In-memory provider only: exercise actual HTTP framing and tool dispatch.
+    force_mock_provider_modes(monkeypatch)
+    monkeypatch.setenv('DRAMA_PLUGIN_ROOT', str(PLUGIN_ROOT))
+    monkeypatch.setenv('DRAMA_MCP_MAX_REQUEST_BYTES', '33554432')
+    monkeypatch.delenv('DRAMA_PLUGIN_CONFIG', raising=False)
+    with TestClient(create_app(), base_url='http://127.0.0.1:8765') as client:
+        headers = {'Content-Type':'application/json', 'Accept':'application/json, text/event-stream'}
+        response = client.post('/mcp', headers=headers, json={'jsonrpc':'2.0','id':1,'method':'initialize',
+            'params':{'protocolVersion':'2025-03-26','capabilities':{},'clientInfo':{'name':'save-size-test','version':'1'}}})
+        headers['mcp-session-id'] = response.headers['mcp-session-id']
+        client.post('/mcp', headers=headers, json={'jsonrpc':'2.0','method':'notifications/initialized'})
+        def call(name, arguments):
+            response = client.post('/mcp', headers=headers, json={'jsonrpc':'2.0','id':2,'method':'tools/call',
+                'params':{'name':name,'arguments':arguments}})
+            assert response.status_code == 200
+            body = json.loads(next(line[6:] for line in response.text.splitlines() if line.startswith('data: ')))
+            result = body['result']; assert not result.get('isError')
+            return result['structuredContent']
+        created = call('work.create_work', {'title':'offline size fixture','content':{}})
+        content = {'historicalEvidence':'x' * payload_size, 'productionRoute':{'fixture':'retained'}}
+        saved = call('work.save_work', {'work_id':created['id'],'title':'offline size fixture','content':content})
+        assert saved['content'] == content
+        assert call('work.get_work', {'work_id':created['id']})['content'] == content
