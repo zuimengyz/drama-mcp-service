@@ -12,6 +12,7 @@ dependencies = [
   "drama-plugin>=0.1,<1",
   "mcp>=2,<3",
   "jsonschema>=4.23,<5",
+  "cryptography>=44,<48",
 ]
 
 [project.optional-dependencies]

@@ -1,8 +1,10 @@
 # Drama MCP Service
 
 `drama-mcp-service` is the thin Host Protocol Adapter between an MCP host and
-the independent Drama Plugin. The Plugin tool registry remains the only source
-of tool names, descriptions, input schemas, handlers, and provider routing.
+the independent Drama Plugin. The Plugin tool registry remains the source of
+production tool names, descriptions, input schemas, handlers, and provider routing.
+Optional read-only `memory.*` tools are discovered from Drama Service's archive
+contract and cannot execute production or adopt media.
 
 ## Local setup
 
@@ -24,6 +26,13 @@ Runtime values live outside Git in two ownership-separated files:
 `../scripts/start-drama-mcp.sh`; it validates and loads only those two files.
 The MCP process must not load `drama-service.env` and starts normally without
 database or object-storage variables.
+
+Optional archive mirroring uses `DRAMA_MCP_ARCHIVE_ENABLED`, a protected
+`DRAMA_MCP_ARCHIVE_KEY`, and `DRAMA_MCP_ARCHIVE_OUTBOX` in `mcp-host.env`.
+`DRAMA_MCP_ARCHIVE_SOURCE_ROOT` can point the read-only observer at a retained
+Ledger directory without changing the active Plugin's production configuration.
+The service owns its independent `DRAMA_ARCHIVE_ENCRYPTION_KEY`; that key stays
+out of the MCP process. Existing provider and model routes are unaffected.
 
 The Host reads `DRAMA_MCP_MAX_REQUEST_BYTES` from `mcp-host.env` and passes it
 to the MCP SDK Streamable HTTP body parser. Unset defaults to 4194304 bytes

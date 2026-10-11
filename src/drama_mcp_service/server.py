@@ -22,9 +22,47 @@ async def plugin_lifespan(server: Server[PluginToolAdapter], *, settings: Settin
     async with DramaPlugin.load(settings.plugin_root, settings.plugin_config) as plugin:
         from drama_mcp_service.runtime_identity import capture_identity
         runtime.update(status="ready", identity=capture_identity(settings, plugin))
+        adapter = PluginToolAdapter(plugin)
+        archive = None
+        worker = None
         try:
-            yield PluginToolAdapter(plugin)
+            import os
+            if os.environ.get("DRAMA_MCP_ARCHIVE_ENABLED", "false") == "true":
+                import asyncio
+                import base64
+                from pathlib import Path
+                from drama_plugin.long_memory.client import DramaArchiveClient  # type: ignore[import-untyped]
+                from drama_mcp_service.archive_adapter import ArchiveMemoryAdapter
+                from drama_mcp_service.archive_sync import ArchiveOutbox
+                try:
+                    archive = DramaArchiveClient.from_environment(os.environ)
+                    if archive is not None:
+                        outbox = ArchiveOutbox(Path(os.environ["DRAMA_MCP_ARCHIVE_OUTBOX"]), base64.b64decode(os.environ["DRAMA_MCP_ARCHIVE_KEY"]))
+                        raw_root = plugin.config.production_ledger_path
+                        root = Path(raw_root).parent if raw_root else None
+                        # An archive observer may read a retained Ledger without configuring
+                        # that Ledger as the active Plugin production owner.
+                        source_root = os.environ.get("DRAMA_MCP_ARCHIVE_SOURCE_ROOT")
+                        if source_root:
+                            root = Path(source_root)
+                            if not root.is_absolute() or not (root / "production.sqlite3").is_file():
+                                raise ValueError("Archive source requires an existing absolute Ledger directory")
+                        wrapper = ArchiveMemoryAdapter(adapter, archive, outbox, ledger_root=root)
+                        await wrapper.discover()
+                        worker = asyncio.create_task(wrapper.synchronize())
+                        adapter = wrapper  # type: ignore[assignment]
+                        runtime["archive"] = "OPTIONAL_SOURCE_MIRROR"
+                except Exception:
+                    runtime["archive"] = "PENDING_CONFIGURATION"
+            yield adapter
         finally:
+            if worker is not None:
+                import asyncio
+                worker.cancel()
+                try: await worker
+                except asyncio.CancelledError: pass
+            if archive is not None:
+                await archive.aclose()
             runtime["status"] = "stopped"
 
 
