@@ -55,6 +55,21 @@ def test_health_exposes_loaded_identity_without_secrets(monkeypatch):
         assert response.status_code == 200
         assert response.json()['identity']['pluginRoot'] == str(PLUGIN.resolve())
         assert 'SENTINEL_PRIVATE_TOKEN' not in response.text
+        files = response.json()['identity']['sourceFilesAtInitialization']
+        for module in (
+            'drama_plugin.creative_engine.backends', 'drama_plugin.creative_engine.author_projection',
+            'drama_plugin.generation.operation', 'drama_plugin.generation.projection',
+            'drama_plugin.generation.compiler', 'drama_plugin.generation.seedance',
+            'drama_plugin.prompt_generators.seedance_2.generator',
+        ):
+            assert files[module]['sha256'] == hashlib.sha256(Path(files[module]['path']).read_bytes()).hexdigest()
+        # A health read must remain the captured process identity, not a disk
+        # freshness check that could misrepresent already imported Python code.
+        snapshot = response.json()
+        def no_disk_read(_):
+            raise AssertionError('Health must not replace startup evidence with live disk hashes')
+        monkeypatch.setattr(Path, 'read_bytes', no_disk_read)
+        assert client.get('/health').json() == snapshot
     assert app.state.runtime_identity['status'] == 'stopped'
 
 

@@ -22,6 +22,10 @@ MODULES = (
     'drama_plugin.context.rhythm', 'drama_plugin.contracts.context',
     'drama_plugin.contracts.audio', 'drama_plugin.providers.speech.role_dubbing',
     'drama_plugin.exceptions',
+    'drama_plugin.creative_engine.backends', 'drama_plugin.creative_engine.author_projection',
+    'drama_plugin.generation.operation', 'drama_plugin.generation.projection',
+    'drama_plugin.generation.compiler', 'drama_plugin.generation.seedance',
+    'drama_plugin.prompt_generators.seedance_2.generator',
 )
 
 
