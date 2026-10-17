@@ -51,6 +51,17 @@ def test_mcp_settings_and_plugin_location_need_no_storage_or_database_env(
     assert settings.host == os.environ.get("DRAMA_MCP_HOST", "127.0.0.1")
 
 
+def test_fixed_production_model_switch_belongs_to_plugin_env(tmp_path: Path) -> None:
+    path=tmp_path/'standard.env'
+    path.write_text('DRAMA_PLUGIN_ACTIVE_ROUTE=ark_seedream_seedance\n'
+                    'DRAMA_PLUGIN_ROUTE_IMAGE_MODEL=Doubao-Seedream-5.0-lite\n'
+                    'DRAMA_PLUGIN_ROUTE_VIDEO_MODEL=seedance-2-standard\n'
+                    'DRAMA_VIDEO_MODEL_SEEDANCE_2_STANDARD_ENABLED=true\n',encoding='utf-8')
+    assert validate('drama-plugin',path).returncode==0
+    assert validate('mcp-host',path).returncode==1
+    assert validate('drama-service',path).returncode==1
+
+
 def test_mcp_active_source_has_no_database_or_storage_configuration_reads() -> None:
     source_root = Path(__file__).resolve().parents[1] / "src"
     source = "\n".join(path.read_text(encoding="utf-8") for path in source_root.rglob("*.py"))

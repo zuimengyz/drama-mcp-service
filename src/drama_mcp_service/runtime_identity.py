@@ -26,6 +26,8 @@ MODULES = (
     'drama_plugin.generation.operation', 'drama_plugin.generation.projection',
     'drama_plugin.generation.compiler', 'drama_plugin.generation.seedance',
     'drama_plugin.prompt_generators.seedance_2.generator',
+    'drama_plugin.professional_design.asset_sequence', 'drama_plugin.film.media_references',
+    'drama_plugin.execution.reference_delivery',
 )
 
 

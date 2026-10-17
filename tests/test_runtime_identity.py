@@ -61,6 +61,8 @@ def test_health_exposes_loaded_identity_without_secrets(monkeypatch):
             'drama_plugin.generation.operation', 'drama_plugin.generation.projection',
             'drama_plugin.generation.compiler', 'drama_plugin.generation.seedance',
             'drama_plugin.prompt_generators.seedance_2.generator',
+            'drama_plugin.professional_design.asset_sequence', 'drama_plugin.film.media_references',
+            'drama_plugin.execution.reference_delivery',
         ):
             assert files[module]['sha256'] == hashlib.sha256(Path(files[module]['path']).read_bytes()).hexdigest()
         # A health read must remain the captured process identity, not a disk
